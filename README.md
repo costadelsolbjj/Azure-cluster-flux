@@ -4,19 +4,91 @@
 ## Overview
 This guide provides comprehensive instructions for setting up Azure Kubernetes Service (AKS) and Azure Container Registry (ACR), along with steps to deploy and manage containerized applications.
 
-## Initial Setup
 
-### Set Environment Variables
-Replace the placeholder values with your specific settings.
+
+# Set Up Your Azure Environment
+
+## Overview
+In this guide, you'll use the Azure CLI to create the Azure resources needed for later units. Before starting, ensure Docker Desktop is installed and running.
+
+
+
+## Steps
+
+### 1. Azure CLI Setup
+**Note:** To save time, provision the Azure resources first and then proceed to the next unit. Azure Kubernetes Cluster creation can take up to 10 minutes and can optionally run in the background.
+
+#### Authenticate with Azure Resource Manager
+Sign in using the Azure CLI:
 ```bash
-AZ_RESOURCE_GROUP=<YOUR_AZ_RESOURCE_GROUP>
-AZ_CONTAINER_REGISTRY=<YOUR_AZ_CONTAINER_REGISTRY>
-AZ_KUBERNETES_CLUSTER=<YOUR_AZ_KUBERNETES_CLUSTER>
+az login
+```
+
+#### Select an Azure Subscription
+List your Azure subscriptions:
+```bash
+az account list --output table
+```
+Set your subscription, replace `<YOUR_SUBSCRIPTION_ID>` with your ID:
+```bash
+az account set --subscription "<YOUR_SUBSCRIPTION_ID>"
+```
+
+### 2. Define Local Variables
+Set up the following environment variables. Replace placeholders with your specific values.
+```bash
+AZ_RESOURCE_GROUP=javacontainerizationdemorg
+AZ_CONTAINER_REGISTRY=<YOUR_CONTAINER_REGISTRY>
+AZ_KUBERNETES_CLUSTER=javacontainerizationdemoaks
 AZ_LOCATION=<YOUR_AZURE_REGION>
 AZ_KUBERNETES_CLUSTER_DNS_PREFIX=<YOUR_UNIQUE_DNS_PREFIX_TO_ACCESS_YOUR_AKS_CLUSTER>
 ```
 
-### Azure Kubernetes Service (AKS) - The Big Picture
+### 3. Create an Azure Resource Group
+Create a Resource group:
+```bash
+az group create \
+    --name $AZ_RESOURCE_GROUP \
+    --location $AZ_LOCATION \
+    | jq
+```
+**Note:** This module uses `jq` to format JSON output. You can remove `| jq` if not needed.
+
+### 4. Create an Azure Container Registry
+Create a Container registry:
+```bash
+az acr create \
+    --resource-group $AZ_RESOURCE_GROUP \
+    --name $AZ_CONTAINER_REGISTRY \
+    --sku Basic \
+    | jq
+```
+Configure Azure CLI for the Azure Container Registry:
+```bash
+az configure \
+    --defaults acr=$AZ_CONTAINER_REGISTRY
+```
+Authenticate to the Azure Container Registry:
+```bash
+az acr login -n $AZ_CONTAINER_REGISTRY
+```
+
+### 5. Create an Azure Kubernetes Cluster
+Create an AKS Cluster:
+```bash
+az aks create \
+    --resource-group $AZ_RESOURCE_GROUP \
+    --name $AZ_KUBERNETES_CLUSTER \
+    --attach-acr $AZ_CONTAINER_REGISTRY \
+    --dns-name-prefix=$AZ_KUBERNETES_CLUSTER_DNS_PREFIX \
+    --generate-ssh-keys \
+    | jq
+```
+**Note:** AKS Cluster creation may take up to 10 minutes. You can proceed to the next unit while this runs.
+
+---
+
+
 
 #### AKS in Action
 **To run the sample application:**
@@ -115,3 +187,55 @@ spec:
 ---
 
 Follow these steps to successfully deploy and manage your applications in Azure Kubernetes Service and Azure Container Registry.
+
+
+
+# Push the Container Image to Azure Container Registry
+
+## Overview
+pushing a container image to Azure Container Registry (ACR).
+
+
+## Steps
+
+### 1. Reinitialize Environment (If Necessary)
+If your session has idled out, reinitialize your environment variables and reauthenticate with Azure:
+```bash
+AZ_RESOURCE_GROUP=javacontainerizationdemorg
+AZ_CONTAINER_REGISTRY=<YOUR_CONTAINER_REGISTRY>
+AZ_KUBERNETES_CLUSTER=javacontainerizationdemoaks
+AZ_LOCATION=<YOUR_AZURE_REGION>
+AZ_KUBERNETES_CLUSTER_DNS_PREFIX=<YOUR_UNIQUE_DNS_PREFIX_TO_ACCESS_YOUR_AKS_CLUSTER>
+
+az login
+az acr login -n $AZ_CONTAINER_REGISTRY
+```
+
+### 2. Push the Container Image
+#### Sign in to Azure Container Registry
+```bash
+az acr login
+```
+
+#### Tag the Built Container Image
+```bash
+docker tag flightbookingsystemsample $AZ_CONTAINER_REGISTRY.azurecr.io/myapp
+```
+
+#### Push the Image to Azure Container Registry
+```bash
+docker push $AZ_CONTAINER_REGISTRY.azurecr.io/myapp
+```
+
+### 3. Verify the Pushed Image
+Run the following command to view the image metadata in Azure Container Registry:
+```bash
+az acr repository show -n $AZ_CONTAINER_REGISTRY --image myapp:v2
+```
+
+You will see output showing the image attributes including its digest and creation time.
+
+---
+
+Your container image is now in the Azure Container Registry, ready for deployment by Azure services such as Azure Kubernetes Service.
+
